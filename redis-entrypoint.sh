@@ -1,7 +1,8 @@
 #!/bin/sh
 set -e
 
-# Leer la contraseña desde el secreto
+echo "🔍 Configurando variables de entorno desde secretos..."
+
 export REDIS_PASSWORD=$(cat /run/secrets/REDIS_PASSWORD)
 
 # Ejecutar Redis con la contraseña
