@@ -11,12 +11,9 @@ else
 fi
 
 if ! command -v pnpm &> /dev/null; then
-  echo "❌ Error: pnpm no está instalado."
-  exit 1
+  sudo curl -fsSL https://get.pnpm.io/install.sh | sh -
+  export PATH="$HOME/.local/share/pnpm:$HOME/.pnpm-global/bin:$PATH"
 fi
-
-pnpm store prune
-pnpm install
 
 # Verificar si Docker está instalado
 if ! command -v docker &> /dev/null; then
@@ -24,8 +21,11 @@ if ! command -v docker &> /dev/null; then
   exit 1
 fi
 
+pnpm install
+
 IMAGE_NAME="joxicrochet-ecommerce-backend:latest"
 CONTAINER_NAME="joxicrochet-ecommerce-backend"
+
 
 # Verificar si el contenedor ya existe
 if [ "$(docker ps -aq -f name=^${CONTAINER_NAME}$)" ]; then
@@ -52,39 +52,47 @@ if ! docker info | grep -q "Swarm: active"; then
   docker swarm init
 fi
 
-
 ## Crear secretos desde .env (cada línea se convierte en un secret individual)
 if [ -f ".env" ]; then
   echo "🔐 Creando secrets desde .env..."
+  # Crear un archivo temporal para el Docker Compose
+  echo "version: '3.8'" > /tmp/secrets.yml
+  echo "secrets:" >> /tmp/secrets.yml
+
+  # Leer el archivo .env y crear definiciones de secretos
   while IFS= read -r line || [ -n "$line" ]; do
     # Saltar líneas vacías y comentarios
     [[ -z "$line" || "$line" == \#* ]] && continue
     
-    # Extraer clave y valor
-    key=$(echo "$line" | cut -d '=' -f1)
-    value=$(echo "$line" | cut -d '=' -f2-)
-
-    # Verificar si el secret ya existe y eliminarlo
-    if docker secret inspect "$key" >/dev/null 2>&1; then
-      docker secret rm "$key"
-    fi
-
-    # Crear el nuevo secret
-    echo -n "$value" | docker secret create "$key" -
+    # Extraer clave y valor sin comillas
+    key=$(echo "$line" | cut -d '=' -f1 | tr -d ' ')
+    value=$(echo "$line" | cut -d '=' -f2- | sed 's/^[[:space:]]*"//;s/"[[:space:]]*$//')
+    
+    # Crear archivo temporal para este secreto
+    echo -n "$value" > "/tmp/$key.secret"
+    
+    # Añadir definición al archivo de compose
+    echo "  $key:" >> /tmp/secrets.yml
+    echo "    file: /tmp/$key.secret" >> /tmp/secrets.yml
   done < .env
-  echo "✅ Secrets creados exitosamente."
+
+  # Desplegar los secretos
+  docker stack deploy -c /tmp/secrets.yml secrets_stack
+
+  # Limpiar archivos temporales
+  while IFS= read -r line || [ -n "$line" ]; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    key=$(echo "$line" | cut -d '=' -f1 | tr -d ' ')
+    rm "/tmp/$key.secret"
+  done < .env
+  rm /tmp/secrets.yml
 else
   echo "⚠️ Advertencia: No se encontró el archivo .env. El backend podría no tener variables necesarias."
 fi
 
-
-# Opcional: iniciar otros servicios con Docker Compose
-read -p "¿Quieres iniciar los contenedores de docker-compose.yml ahora? (y/n): " choice
-if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-  echo "🚀 Iniciando contenedores con Docker Compose..."
-  docker stack deploy -c docker-compose.yml backend
-  echo "✅ Contenedores de Docker Compose iniciados correctamente."
-fi
+echo "🚀 Iniciando contenedores con Docker stack..."
+docker stack deploy -c docker-compose.yml backend
+echo "✅ Contenedores de Docker Compose iniciados correctamente."
 
 cd .. || { echo "❌ Error: No se pudo regresar al directorio anterior."; exit 1; }
 
