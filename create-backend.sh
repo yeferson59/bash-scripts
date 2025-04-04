@@ -10,9 +10,10 @@ else
   exit 1
 fi
 
+export PATH="$HOME/.local/share/pnpm:$HOME/.pnpm-global/bin:$PATH"
+
 if ! command -v pnpm &> /dev/null; then
   sudo curl -fsSL https://get.pnpm.io/install.sh | sh -
-  export PATH="$HOME/.local/share/pnpm:$HOME/.pnpm-global/bin:$PATH"
 fi
 
 # Verificar si Docker está instalado
@@ -63,14 +64,14 @@ if [ -f ".env" ]; then
   while IFS= read -r line || [ -n "$line" ]; do
     # Saltar líneas vacías y comentarios
     [[ -z "$line" || "$line" == \#* ]] && continue
-    
+
     # Extraer clave y valor sin comillas
     key=$(echo "$line" | cut -d '=' -f1 | tr -d ' ')
     value=$(echo "$line" | cut -d '=' -f2- | sed 's/^[[:space:]]*"//;s/"[[:space:]]*$//')
-    
+
     # Crear archivo temporal para este secreto
     echo -n "$value" > "/tmp/$key.secret"
-    
+
     # Añadir definición al archivo de compose
     echo "  $key:" >> /tmp/secrets.yml
     echo "    file: /tmp/$key.secret" >> /tmp/secrets.yml
