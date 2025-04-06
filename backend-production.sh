@@ -1,9 +1,19 @@
 #!/bin/bash
 set -e
 
-VPS_USER="admin"
-VPS_HOST="155.133.22.54"
+VPS_USER="root"
+VPS_HOST="127.0.0.1"
 STACK_NAME="joxicrochet"
+
+while getopts "u:h:s:" opt; do
+  case $opt in
+    u) VPS_USER="$OPTARG";;
+    h) VPS_HOST="$OPTARG";;
+    s) STACK_NAME="$OPTARG";;
+    \?) echo "Opción inválida: -$OPTARG" >&2; exit 1;;
+  esac
+done
+
 DEPLOY_PATH="/home/admin/${STACK_NAME}"
 
 # Colores para output
@@ -38,11 +48,10 @@ scp scripts/*.sh $VPS_USER@$VPS_HOST:$DEPLOY_PATH/scripts/ || error "Falló la t
 scp backend/.env $VPS_USER@$VPS_HOST:$DEPLOY_PATH/backend/ || error "Falló la transferencia de variables de entorno"
 
 log "Ejecutando comandos en el VPS..."
-ssh $VPS_USER@$VPS_HOST "bash -s" << 'EOF' || error "Deployment failed"
+ssh $VPS_USER@$VPS_HOST "bash -s" << EOF || error "Deployment failed"
   set -e
 
-  STACK_NAME="joxicrochet"
-  DEPLOY_PATH="/home/admin/${STACK_NAME}"
+  DEPLOY_PATH="${DEPLOY_PATH}"
 
   echo "🔄 Entrando en la carpeta '$DEPLOY_PATH'..."
   cd "$DEPLOY_PATH" || { echo "❌ Error: No se pudo acceder al directorio '$DEPLOY_PATH'"; exit 1; }
@@ -78,6 +87,6 @@ ssh $VPS_USER@$VPS_HOST "bash -s" << 'EOF' || error "Deployment failed"
   echo "delete files and folders saved in backend folder"
   rm -rf ./backend/.env
   rm -rf ./scripts
-  
+
   echo "✅ Proceso finalizado con éxito."
 EOF
