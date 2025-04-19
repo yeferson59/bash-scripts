@@ -21,7 +21,6 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-# Función para mostrar mensajes
 log() {
   echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
 }
@@ -41,7 +40,7 @@ command -v ssh >/dev/null 2>&1 || error "SSH is required but not installed"
 command -v scp >/dev/null 2>&1 || error "SCP is required but not installed"
 
 log "Estableciendo conexión SSH con el servidor VPS..."
-ssh $VPS_USER@$VPS_HOST "mkdir -p $DEPLOY_PATH/scripts $DEPLOY_PATH/backend" || error "No se pudo crear directorios en el VPS."
+ssh $VPS_USER@$VPS_HOST "mkdir -p $DEPLOY_PATH/scripts" || error "No se pudo crear directorios en el VPS."
 
 log "Transfiriendo archivos al VPS..."
 scp scripts/*.sh $VPS_USER@$VPS_HOST:$DEPLOY_PATH/scripts/ || error "Falló la transferencia de scripts"
